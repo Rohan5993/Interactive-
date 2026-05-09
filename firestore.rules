@@ -1,0 +1,90 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(ownerId) {
+      return isSignedIn() && request.auth.uid == ownerId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Projects ---
+    match /projects/{projectId} {
+      allow create: if isSignedIn() && isValidId(projectId) && isValidProject(incoming())
+                    && incoming().ownerId == request.auth.uid
+                    && incoming().createdAt == request.time;
+      
+      allow read: if isOwner(existing().ownerId);
+      
+      allow update: if isOwner(existing().ownerId) && isValidProject(incoming())
+                    && incoming().ownerId == existing().ownerId
+                    && incoming().createdAt == existing().createdAt
+                    && incoming().updatedAt == request.time;
+      
+      allow delete: if isOwner(existing().ownerId);
+
+      // --- Scenes ---
+      match /scenes/{sceneId} {
+        allow read: if isOwner(get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId);
+        allow write: if isOwner(get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId)
+                     && isValidScene(incoming());
+      }
+
+      // --- Interactions ---
+      match /interactions/{interactionId} {
+        allow read: if isOwner(get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId);
+        allow write: if isOwner(get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId)
+                     && isValidInteraction(incoming());
+      }
+    }
+
+    // --- Validation Blueprints ---
+    function isValidProject(data) {
+      return data.keys().hasAll(['title', 'ownerId', 'createdAt', 'updatedAt'])
+             && data.title is string && data.title.size() <= 200
+             && data.ownerId is string
+             && (data.get('description', '') is string)
+             && (data.get('status', 'draft') in ['draft', 'processing', 'completed'])
+             && data.keys().size() <= 10;
+    }
+
+    function isValidScene(data) {
+      return data.keys().hasAll(['projectId', 'title', 'order'])
+             && data.projectId is string
+             && data.title is string && data.title.size() <= 200
+             && data.order is number
+             && (data.get('duration', 5) is number)
+             && (data.get('videoPrompt', '') is string && data.get('videoPrompt', '').size() <= 2000)
+             && data.keys().size() <= 15;
+    }
+
+    function isValidInteraction(data) {
+      return data.keys().hasAll(['projectId', 'type', 'question', 'timestamp'])
+             && data.projectId is string
+             && data.type in ['MCQ', 'DRAG_DROP', 'FILL_BLANKS', 'TRUE_FALSE', 'POLL']
+             && data.question is string && data.question.size() <= 500
+             && data.timestamp is number
+             && data.keys().size() <= 10;
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "Interactive",
+  "description": "An interactive AI video platform for creating scene-based educational content with integrated assessments.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "AI Video Generation",
+    "Interactive Learning",
+    "Voice Synthesis",
+    "Timeline Editing"
+  ]
+}
