@@ -4,6 +4,36 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>My Google AI Studio App</title>
+    <script>
+      // Polyfill to handle read-only window.fetch assignment errors
+      (function() {
+        if (typeof window === 'undefined') return;
+        try {
+          var originalFetch = window.fetch;
+          if (typeof originalFetch !== 'function') return;
+          
+          var desc = Object.getOwnPropertyDescriptor(window, 'fetch') || 
+                     Object.getOwnPropertyDescriptor(Object.getPrototypeOf(window), 'fetch');
+          
+          if (desc && desc.writable) return; // Already writable
+
+          // If not configurable, we can't use defineProperty
+          if (desc && desc.configurable === false) {
+            console.warn('window.fetch is not configurable, assignment errors may occur');
+            return;
+          }
+
+          Object.defineProperty(window, 'fetch', {
+            value: originalFetch,
+            writable: true,
+            configurable: true,
+            enumerable: true
+          });
+        } catch (e) {
+          console.warn('Failed to make window.fetch writable:', e);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
